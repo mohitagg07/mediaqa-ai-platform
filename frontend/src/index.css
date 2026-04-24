@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* System fonts — works offline, no Google Fonts needed */
+/* Uncomment the @import line below ONLY if you have internet */
+/* @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap'); */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -22,14 +24,18 @@
   --amber:     #f59e0b;
   --red:       #ef4444;
   --purple:    #a78bfa;
-  --sidebar-w: 260px;
+  --sidebar-w: 268px;
   --r:         10px;
   --r-lg:      14px;
   --r-xl:      18px;
-  --font:      'Outfit', sans-serif;
-  --mono:      'JetBrains Mono', monospace;
-  --ease:      cubic-bezier(0.25,0.46,0.45,0.94);
-  --trans:     0.15s var(--ease);
+
+  /* System font stack — looks great without downloading anything */
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter',
+          'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+
+  --ease:  cubic-bezier(0.25,0.46,0.45,0.94);
+  --trans: 0.15s var(--ease);
 }
 
 html { font-size: 15px; }
@@ -47,29 +53,36 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 4px; }
 
-/* ── Utilities ─────────────────────────────── */
+/* ── Utilities ───────────────────────────── */
 .mono { font-family: var(--mono); }
 
 /* ── Buttons ─────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   padding: 8px 16px; border-radius: var(--r);
-  font-family: var(--font); font-size: 0.875rem; font-weight: 500;
+  font-family: var(--font); font-size: 0.875rem; font-weight: 600;
   border: none; cursor: pointer; transition: var(--trans);
   white-space: nowrap; text-decoration: none;
   position: relative; overflow: hidden;
 }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-primary {
   background: var(--accent); color: #fff;
-  box-shadow: 0 0 0 0 var(--accent-glow);
+  box-shadow: 0 2px 12px rgba(79,125,255,0.35);
 }
-.btn-primary:hover { background: var(--accent-hi); box-shadow: 0 0 20px var(--accent-glow); }
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hi);
+  box-shadow: 0 4px 20px rgba(79,125,255,0.45);
+  transform: translateY(-1px);
+}
 .btn-primary:active { transform: scale(0.97); }
 .btn-ghost {
   background: transparent; color: var(--text-2);
   border: 1px solid var(--border-md);
 }
-.btn-ghost:hover { background: var(--bg-3); color: var(--text); border-color: var(--border-hi); }
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-3); color: var(--text); border-color: var(--border-hi);
+}
 .btn-icon {
   width: 32px; height: 32px; padding: 0;
   background: transparent; color: var(--text-3); border: none;
@@ -78,7 +91,7 @@ body {
 }
 .btn-icon:hover { background: var(--bg-3); color: var(--text-2); }
 
-/* ── Spinner ────────────────────────────── */
+/* ── Spinner ─────────────────────────────── */
 .spin {
   display: inline-block; width: 16px; height: 16px;
   border: 2px solid rgba(255,255,255,0.1);
@@ -88,18 +101,18 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Badges ─────────────────────────────── */
+/* ── Badges ──────────────────────────────── */
 .badge {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 2px 8px; border-radius: 100px;
   font-size: 0.68rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.05em;
 }
-.badge-pdf    { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
-.badge-audio  { background: rgba(34,197,94,0.1);    color: var(--green);  border: 1px solid rgba(34,197,94,0.2); }
-.badge-video  { background: rgba(245,158,11,0.1);   color: var(--amber);  border: 1px solid rgba(245,158,11,0.2); }
+.badge-pdf   { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+.badge-audio { background: rgba(34,197,94,0.1);    color: var(--green);  border: 1px solid rgba(34,197,94,0.2); }
+.badge-video { background: rgba(245,158,11,0.1);   color: var(--amber);  border: 1px solid rgba(245,158,11,0.2); }
 
-/* ── Input ────────────────────────────── */
+/* ── Input ───────────────────────────────── */
 .input {
   width: 100%; padding: 10px 14px;
   background: var(--bg-2); color: var(--text);
@@ -107,10 +120,31 @@ body {
   font-family: var(--font); font-size: 0.9rem;
   outline: none; transition: var(--trans); resize: none;
 }
-.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.input:focus  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .input::placeholder { color: var(--text-3); }
 
-/* ── Animations ───────────────────────── */
+/* ── User badge (sidebar + topbar) ───────── */
+.db-sb-user {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r);
+  font-size: 0.78rem; font-weight: 600;
+  color: var(--accent-hi);
+}
+.db-topbar-user {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; color: var(--text-2);
+  background: var(--bg-2);
+  border: 1px solid var(--border-md);
+  border-radius: 100px;
+  padding: 4px 10px;
+}
+.db-sb-logout { color: var(--red) !important; }
+.db-sb-logout:hover { background: rgba(239,68,68,0.08) !important; color: var(--red) !important; }
+
+/* ── Animations ──────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }

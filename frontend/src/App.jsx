@@ -1,12 +1,25 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
 import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import AuthPage from './pages/AuthPage'
 import './index.css'
 
+// ── Protected Route ───────────────────────────────────────────────
+// Any route wrapped in this redirects to /auth if not logged in.
+function ProtectedRoute({ children }) {
+  const { user } = useAuth()
+  const token = localStorage.getItem('token')
+
+  if (!user && !token) {
+    return <Navigate to="/auth" replace />
+  }
+  return children
+}
+
+// ── App ───────────────────────────────────────────────────────────
 export default function App() {
   return (
     <AuthProvider>
@@ -15,13 +28,26 @@ export default function App() {
           <Navbar />
           <main className="main-content">
             <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              {/* Public pages */}
+              <Route path="/"     element={<Home />} />
               <Route path="/auth" element={<AuthPage />} />
+
+              {/* Protected — must be logged in */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Catch-all */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </div>
+
         <Toaster
           position="bottom-right"
           toastOptions={{

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Any
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
@@ -56,7 +56,8 @@ class SummaryResponse(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    email: str
+    # email is OPTIONAL — frontend doesn't send it
+    email: Optional[str] = None
     password: str
 
 
@@ -76,6 +77,6 @@ class TokenData(BaseModel):
 
 class UserInDB(BaseModel):
     username: str
-    email: str
+    email: Optional[str] = None
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.utcnow)

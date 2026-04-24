@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authAPI } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import './AuthPage.css'
 
 export default function AuthPage() {
-  const [mode, setMode]         = useState('login')
+  const [mode, setMode]     = useState('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
-  const navigate                = useNavigate()
+  const navigate            = useNavigate()
+  const { login, register } = useAuth()
 
   const submit = async () => {
     if (!username.trim() || !password.trim()) {
@@ -18,18 +19,24 @@ export default function AuthPage() {
     setLoading(true)
     try {
       if (mode === 'login') {
-        const r = await authAPI.login({ username, password })
-        localStorage.setItem('token', r.data.access_token)
-        toast.success('Signed in successfully')
+        // login() updates AuthContext state + sets localStorage
+        await login(username, password)
+        toast.success('Signed in successfully!')
         navigate('/dashboard')
       } else {
-        await authAPI.register({ username, password })
-        toast.success('Account created — please sign in')
-        setMode('login')
+        // email is optional — pass empty string
+        await register(username, '', password)
+        toast.success('Account created — signing you in…')
+        // auto-login after register
+        await login(username, password)
+        navigate('/dashboard')
       }
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Authentication failed')
-    } finally { setLoading(false) }
+      const msg = e.response?.data?.detail || 'Authentication failed'
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const onKey = (e) => { if (e.key === 'Enter') submit() }
@@ -91,9 +98,7 @@ export default function AuthPage() {
           </button>
         </p>
 
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
+        <div className="auth-divider"><span>or</span></div>
 
         <button
           className="btn btn-ghost auth-guest"

@@ -21,14 +21,14 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
-    # Groq
+    # Groq — llama3-8b-8192 was decommissioned, use llama-3.1-8b-instant
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama3-8b-8192"
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
 
     # HuggingFace Embeddings
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
 
-    # Whisper
+    # Whisper (faster-whisper model size)
     WHISPER_MODEL: str = "base"
 
     # FAISS

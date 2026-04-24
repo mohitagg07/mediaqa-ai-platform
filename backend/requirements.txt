@@ -20,7 +20,7 @@ sentence-transformers==2.7.0
 faiss-cpu==1.8.0
 numpy==1.26.4
 
-# ─── Whisper (FIXED) ────────────────────
+# ─── Whisper (faster-whisper, no ffmpeg PATH issues) ────────────────────────
 faster-whisper==1.0.3
 imageio-ffmpeg==0.4.9
 
@@ -36,7 +36,7 @@ python-dotenv==1.0.1
 pydantic==2.7.1
 pydantic-settings==2.2.1
 
-# ─── Testing (optional but fine) ─────────
+# ─── Testing ─────────────────────────────
 pytest==8.2.0
 pytest-asyncio==0.23.7
 pytest-cov==5.0.0
