@@ -5,7 +5,6 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
 _client: Optional[Groq] = None
 
 
@@ -18,70 +17,75 @@ def get_groq_client() -> Groq:
 
 def _build_qa_prompt(question: str, context_chunks: List[str]) -> str:
     context = "\n\n---\n\n".join(context_chunks)
-    return (
-        "You are a precise AI assistant answering questions about a transcript or document.\n\n"
-        "STRICT RULES:\n"
-        "- Answer ONLY using the exact words and sentences from the TRANSCRIPT/CONTEXT below.\n"
-        "- If the user asks for a transcript, word-by-word content, or exact phrases — "
-        "return the raw text from context verbatim, formatted as a list.\n"
-        "- DO NOT interpret, infer themes, or add external knowledge.\n"
-        "- DO NOT say things like 'the context is describing' — just answer directly.\n"
-        "- If the content looks like test sentences or speech samples, describe it as such "
-        "(e.g. 'These are phonetic test sentences'). Do NOT guess meaning.\n"
-        "- If the answer is not in the context, say: 'This information is not in the transcript.'\n"
-        "- Use markdown bullet lists when listing sentences or key points.\n\n"
-        "### Transcript / Context\n"
-        f"{context}\n\n"
-        f"### Question\n{question}\n\n"
-        "### Answer"
-    )
+    return f"""You are a precise Q&A assistant. Answer using ONLY the context below.
+
+STRICT RULES:
+- Use ONLY information from the context.
+- DO NOT add anything not present in the context.
+- DO NOT hallucinate, invent, or guess.
+- If the answer is not in the context, say: "This information is not in the provided content."
+- For transcript requests, quote the text exactly as it appears.
+- Use markdown formatting (bullet points, bold) where helpful.
+
+Context:
+\"\"\"
+{context}
+\"\"\"
+
+Question: {question}
+
+Answer:"""
 
 
 def _build_summary_prompt(text: str) -> str:
-    return (
-        "You are given the exact transcript or extracted text from a media file.\n\n"
-        "STRICT RULES:\n"
-        "- Base your summary ENTIRELY on the text below — word for word.\n"
-        "- DO NOT infer themes, emotions, or meanings not stated explicitly.\n"
-        "- If the text contains test phrases or speech samples, identify it as such.\n"
-        "- Keep the summary factual and short.\n\n"
-        "OUTPUT FORMAT (use exactly):\n"
-        "### Transcript\n"
-        "(Copy the exact transcript text here, as bullet points)\n\n"
-        "### Summary\n"
-        "1-2 sentences describing what this content literally says.\n\n"
-        "### Key Sentences\n"
-        "- List each distinct sentence from the transcript as a bullet\n\n"
-        f"Transcript text:\n\"\"\"\n{text}\n\"\"\"\n\n"
-        "Output:"
-    )
+    return f"""You are given the exact text or transcript from a document or media file.
+
+STRICT RULES:
+- Summarize ONLY what is EXPLICITLY written in the text below.
+- DO NOT infer personal preferences, opinions, or themes unless clearly stated.
+- DO NOT hallucinate or add anything not present.
+- If the text appears to be unrelated test phrases or sentences, say so explicitly.
+- Do not assume meaning beyond what is literally written.
+
+Text:
+\"\"\"
+{text}
+\"\"\"
+
+Output this exact format:
+
+## Overview
+One or two sentences describing what this content literally contains.
+
+## Key Points
+- List only statements that are actually present in the text
+- Do not interpret or generalize
+
+## Details
+Describe the nature of this content (e.g., "a series of unrelated test sentences", "a structured document about X", "spoken phrases used for audio testing").
+"""
 
 
 def _build_visual_summary_prompt(metadata_text: str) -> str:
-    """
-    For silent videos — generates a human-friendly content description
-    instead of a dry technical report.
-    """
-    return (
-        "You are given metadata about a video file that contains no detectable speech.\n\n"
-        "Your task is to write a short, natural, user-friendly summary of what this "
-        "video likely contains based only on the metadata provided.\n\n"
-        "STRICT RULES:\n"
-        "- Do NOT use technical jargon like 'codec', 'bitrate', or 'container format'.\n"
-        "- Write as if describing the video to a non-technical user.\n"
-        "- Keep it to 2-3 sentences.\n"
-        "- Do NOT invent specific content (characters, scenes, story) — only infer "
-        "from what the metadata tells you (duration, resolution, presence of audio track).\n\n"
-        f"Metadata:\n\"\"\"\n{metadata_text}\n\"\"\"\n\n"
-        "Summary:"
-    )
+    return f"""You are given metadata about a video file with no detectable speech.
+
+Write a short, user-friendly description (2-3 sentences) of what this video likely contains.
+
+RULES:
+- Do NOT use technical terms like codec, bitrate, container.
+- Only infer from: duration, resolution, presence/absence of audio.
+- Do NOT invent characters, scenes, or storylines.
+- Be factual and professional.
+
+Metadata:
+\"\"\"
+{metadata_text}
+\"\"\"
+
+Description:"""
 
 
 def generate_summary(text: str, is_silent_video: bool = False) -> str:
-    """
-    Generate a grounded summary of the provided text or transcript.
-    For silent videos, uses a content-style prompt instead of a metadata dump.
-    """
     truncated = text[:8000] if len(text) > 8000 else text
     prompt = (
         _build_visual_summary_prompt(truncated)
@@ -94,7 +98,7 @@ def generate_summary(text: str, is_silent_video: bool = False) -> str:
             model=settings.GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=800,
-            temperature=0.1,   # near-zero = grounded, no creativity
+            temperature=0.0,
         )
         summary = response.choices[0].message.content.strip()
         logger.info("Summary generated successfully")
@@ -112,7 +116,7 @@ def answer_question(question: str, context_chunks: List[str]) -> str:
             model=settings.GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1024,
-            temperature=0.1,
+            temperature=0.0,
         )
         answer = response.choices[0].message.content.strip()
         logger.info(f"LLM answered: {question[:50]}")
@@ -132,7 +136,7 @@ async def stream_answer_question(
             model=settings.GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1024,
-            temperature=0.1,
+            temperature=0.0,
             stream=True,
         )
         for chunk in stream:
@@ -145,9 +149,5 @@ async def stream_answer_question(
         raise RuntimeError(f"LLM streaming error: {str(e)}")
 
 
-def find_relevant_timestamp_chunk(
-    question: str, context_chunks: List[str]
-) -> Optional[str]:
-    if not context_chunks:
-        return None
-    return context_chunks[0]
+def find_relevant_timestamp_chunk(question: str, context_chunks: List[str]) -> Optional[str]:
+    return context_chunks[0] if context_chunks else None

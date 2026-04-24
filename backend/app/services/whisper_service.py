@@ -35,8 +35,8 @@ def get_whisper_model():
     global _model
     if _model is None:
         from faster_whisper import WhisperModel
-        logger.info("Loading faster-whisper model (base)...")
-        _model = WhisperModel("base", device="cpu", compute_type="int8")
+        logger.info("Loading faster-whisper model (tiny)...")
+        _model = WhisperModel("tiny", device="cpu", compute_type="int8")
         logger.info("faster-whisper model loaded OK")
     return _model
 
