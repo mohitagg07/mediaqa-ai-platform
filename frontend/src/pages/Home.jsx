@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { FileText, Music, Video, Clock, Brain, Zap } from 'lucide-react'
+import { FileText, Music, Video, Clock, Brain, Zap, Upload, MessageSquare, Search } from 'lucide-react'
 import './Home.css'
 
 export default function Home() {
@@ -16,35 +16,65 @@ export default function Home() {
 
       <section className="home-hero">
         <div className="home-pill">
-          <Zap size={11} /> RAG powered by Groq and Whisper
+          <Zap size={11} /> Powered by Groq LLM · Whisper ASR · FAISS Vector Search
         </div>
         <h1 className="home-h1">
           Ask questions about<br />
           <span className="home-gradient">any file you upload</span>
         </h1>
         <p className="home-desc">
-          Upload a PDF, audio, or video. Get accurate AI answers with source references
-          and instant timestamp navigation.
+          Upload PDFs, audio, or video. Get instant AI-powered answers with
+          source citations and one-click timestamp navigation.
         </p>
         <div className="home-cta">
           <button className="btn btn-primary home-cta-btn" onClick={() => navigate('/dashboard')}>
-            Upload a file
+            <Upload size={15} style={{ marginRight: 6 }} /> Upload a file
           </button>
-          <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="btn btn-ghost home-cta-btn">
-            API Docs
-          </a>
         </div>
 
         <div className="home-features">
           {[
             { icon: <FileText size={14} />, text: 'PDF Analysis' },
-            { icon: <Music size={14} />,    text: 'Audio Q&A' },
+            { icon: <Music size={14} />,    text: 'Audio Transcription' },
             { icon: <Video size={14} />,    text: 'Video Q&A' },
             { icon: <Clock size={14} />,    text: 'Timestamp Jump' },
             { icon: <Brain size={14} />,    text: 'Semantic Search' },
           ].map(f => (
             <div key={f.text} className="home-feat">
               <span>{f.icon}</span>{f.text}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="home-how">
+        <h2 className="home-how-title">How it works</h2>
+        <div className="home-steps">
+          {[
+            {
+              icon: <Upload size={22} />,
+              step: '01',
+              title: 'Upload your file',
+              desc: 'Drop a PDF, MP3, WAV, or MP4. We handle transcription and indexing automatically.',
+            },
+            {
+              icon: <Search size={22} />,
+              step: '02',
+              title: 'AI processes it',
+              desc: 'Whisper transcribes audio. FAISS indexes content. Chunks are ready for precise semantic retrieval.',
+            },
+            {
+              icon: <MessageSquare size={22} />,
+              step: '03',
+              title: 'Ask anything',
+              desc: 'Chat with your file. Get grounded answers with source citations and jump to exact timestamps.',
+            },
+          ].map(s => (
+            <div key={s.step} className="home-step">
+              <div className="home-step-icon">{s.icon}</div>
+              <div className="home-step-num">{s.step}</div>
+              <h3 className="home-step-title">{s.title}</h3>
+              <p className="home-step-desc">{s.desc}</p>
             </div>
           ))}
         </div>

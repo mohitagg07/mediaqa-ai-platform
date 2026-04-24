@@ -130,16 +130,14 @@
 
 /* Sources */
 .ci-sources {
-  font-size: 0.78rem; color: var(--text-3);
+  font-size: 0.78rem; color: var(--text-3); margin-top: 6px;
 }
-.ci-sources summary {
+.ci-src-label {
   display: flex; align-items: center; gap: 5px;
-  cursor: pointer; list-style: none; padding: 4px 0;
-  user-select: none; transition: var(--trans);
+  padding: 4px 0; color: var(--text-3);
 }
-.ci-sources summary:hover { color: var(--text-2); }
 .ci-src-list {
-  margin-top: 8px; display: flex; flex-direction: column; gap: 6px;
+  margin-top: 6px; display: flex; flex-direction: column; gap: 6px;
 }
 .ci-src-item {
   display: flex; gap: 9px; align-items: flex-start;
@@ -147,6 +145,7 @@
   border: 1px solid var(--border); border-radius: 8px;
   font-size: 0.76rem; color: var(--text-2); line-height: 1.5;
 }
+.ci-src-text { flex: 1; }
 .ci-src-idx {
   color: var(--accent); font-size: 0.7rem; margin-top: 1px; flex-shrink: 0;
 }

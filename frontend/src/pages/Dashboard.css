@@ -251,3 +251,11 @@
   background: var(--bg-3); color: var(--text);
   border-color: var(--c, var(--border-md));
 }
+
+/* User badge in topbar */
+.db-topbar-user {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; color: var(--text-2);
+  background: var(--bg-2); border: 1px solid var(--border-md);
+  border-radius: 100px; padding: 4px 10px; font-family: var(--mono);
+}

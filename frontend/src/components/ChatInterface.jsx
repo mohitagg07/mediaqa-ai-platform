@@ -179,20 +179,20 @@ export default function ChatInterface({ fileId, fileType, onTimestamp }) {
 
               {/* Sources */}
               {!msg.streaming && msg.sources?.length > 0 && (
-                <details className="ci-sources">
-                  <summary>
+                <div className="ci-sources">
+                  <div className="ci-src-label">
                     <BookOpen size={11} />
                     {msg.sources.length} source chunk{msg.sources.length > 1 ? 's' : ''} used
-                  </summary>
+                  </div>
                   <div className="ci-src-list">
                     {msg.sources.map((s, i) => (
                       <div key={i} className="ci-src-item">
                         <span className="ci-src-idx mono">{i + 1}</span>
-                        <span>{s}</span>
+                        <span className="ci-src-text">{s}</span>
                       </div>
                     ))}
                   </div>
-                </details>
+                </div>
               )}
             </div>
           </div>

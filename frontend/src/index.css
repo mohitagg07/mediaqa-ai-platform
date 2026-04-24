@@ -161,3 +161,13 @@ body {
 
 .fade-up { animation: fadeUp 0.3s var(--ease) forwards; }
 .fade-in { animation: fadeIn 0.25s ease forwards; }
+
+/* ── Layout Shell ────────────────────────── */
+.app-shell {
+  display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden;
+}
+.main-content {
+  flex: 1; overflow: auto;
+  display: flex; flex-direction: column;
+}

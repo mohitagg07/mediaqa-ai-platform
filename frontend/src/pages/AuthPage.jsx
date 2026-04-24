@@ -24,12 +24,10 @@ export default function AuthPage() {
         toast.success('Signed in successfully!')
         navigate('/dashboard')
       } else {
-        // email is optional — pass empty string
-        await register(username, '', password)
-        toast.success('Account created — signing you in…')
-        // auto-login after register
-        await login(username, password)
-        navigate('/dashboard')
+        // email is optional — pass null (not empty string)
+        await register(username, null, password)
+        toast.success('Account created! Please sign in.')
+        setMode('login')
       }
     } catch (e) {
       const msg = e.response?.data?.detail || 'Authentication failed'

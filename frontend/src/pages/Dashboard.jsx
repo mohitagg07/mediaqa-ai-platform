@@ -1,31 +1,32 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate }  from 'react-router-dom'
+import { useAuth }      from '../context/AuthContext'
 import {
   FileText, Music, Video, ChevronRight, Layers,
-  MessageSquare, LogOut, Home, Menu, X, Plus,
-  Clock, Search
+  MessageSquare, LogOut, Home, Menu, X, LogIn,
+  Clock, Search, User
 } from 'lucide-react'
-import { uploadAPI } from '../services/api'
-import UploadZone from '../components/UploadZone'
-import ChatInterface from '../components/ChatInterface'
-import MediaPlayer from '../components/MediaPlayer'
-import Summary from '../components/Summary'
-import toast from 'react-hot-toast'
+import { uploadAPI }    from '../services/api'
+import UploadZone       from '../components/UploadZone'
+import ChatInterface    from '../components/ChatInterface'
+import MediaPlayer      from '../components/MediaPlayer'
+import Summary          from '../components/Summary'
+import toast            from 'react-hot-toast'
 import './Dashboard.css'
 
 const TYPE_ICON  = { pdf: FileText, audio: Music, video: Video }
 const TYPE_COLOR = { pdf: 'var(--purple)', audio: 'var(--green)', video: 'var(--amber)' }
 
 export default function Dashboard() {
-  const [files, setFiles]           = useState([])
-  const [selected, setSelected]     = useState(null)
-  const [tab, setTab]               = useState('chat')
-  const [loading, setLoading]       = useState(true)
-  const [sidebar, setSidebar]       = useState(true)
-  const [search, setSearch]         = useState('')
-  const playerRef                   = useRef(null)
-  const navigate                    = useNavigate()
-  const isAuth                      = !!localStorage.getItem('token')
+  const [files,    setFiles]    = useState([])
+  const [selected, setSelected] = useState(null)
+  const [tab,      setTab]      = useState('chat')
+  const [loading,  setLoading]  = useState(true)
+  const [sidebar,  setSidebar]  = useState(true)
+  const [search,   setSearch]   = useState('')
+  const playerRef               = useRef(null)
+  const navigate                = useNavigate()
+  const { user, logout }        = useAuth()
 
   useEffect(() => { fetchFiles() }, [])
 
@@ -33,7 +34,7 @@ export default function Dashboard() {
     try {
       const r = await uploadAPI.listFiles()
       setFiles(r.data.files || [])
-    } catch { toast.error('Could not load files') }
+    } catch { /* silent */ }
     finally { setLoading(false) }
   }
 
@@ -53,13 +54,13 @@ export default function Dashboard() {
     } catch { toast.error('Could not load file') }
   }
 
-  const seekTo = (s) => playerRef.current?.seekTo(s)
-
-  const logout = () => {
-    localStorage.removeItem('token')
+  const handleLogout = () => {
+    logout()
     toast.success('Signed out')
     navigate('/')
   }
+
+  const seekTo = (s) => playerRef.current?.seekTo(s)
 
   const ftype    = selected?.type
   const TypeIcon = selected ? (TYPE_ICON[ftype] || FileText) : null
@@ -69,7 +70,8 @@ export default function Dashboard() {
 
   return (
     <div className="db">
-      {/* ─── SIDEBAR ─────────────────────────── */}
+
+      {/* ── SIDEBAR ──────────────────────────── */}
       <aside className={`db-sidebar ${sidebar ? '' : 'collapsed'}`}>
         <div className="db-sb-top">
           <div className="db-sb-brand">
@@ -81,9 +83,16 @@ export default function Dashboard() {
             </button>
           </div>
 
+          {/* User badge */}
+          {user && (
+            <div className="db-sb-user">
+              <User size={12} /> {user.username}
+            </div>
+          )}
+
           {/* Search */}
           <div className="db-sb-search">
-            <Search size={13} className="db-sb-search-icon" />
+            <Search size={12} className="db-sb-search-icon" />
             <input
               className="db-sb-search-input"
               placeholder="Search files…"
@@ -96,7 +105,7 @@ export default function Dashboard() {
           <UploadZone onUploaded={handleUploaded} />
         </div>
 
-        {/* File list */}
+        {/* File list header */}
         <div className="db-sb-files-header">
           <span className="db-sb-section-label">
             <Layers size={11} /> Files
@@ -104,12 +113,13 @@ export default function Dashboard() {
           <span className="db-sb-count">{files.length}</span>
         </div>
 
+        {/* Files */}
         <div className="db-sb-list">
           {loading ? (
             <div className="db-sb-loading"><span className="spin" /></div>
           ) : filtered.length === 0 ? (
             <div className="db-sb-empty">
-              {search ? 'No matches' : 'No files yet'}
+              {search ? 'No matches' : 'No files yet — upload one above'}
             </div>
           ) : filtered.map(f => {
             const Icon    = TYPE_ICON[f.type] || FileText
@@ -138,15 +148,20 @@ export default function Dashboard() {
           <button className="db-sb-footer-btn" onClick={() => navigate('/')}>
             <Home size={13} /> Home
           </button>
-          {isAuth
-            ? <button className="db-sb-footer-btn" onClick={logout}><LogOut size={13} /> Sign out</button>
-            : <button className="db-sb-footer-btn" onClick={() => navigate('/auth')}><Plus size={13} /> Sign in</button>
+          {user
+            ? <button className="db-sb-footer-btn db-sb-logout" onClick={handleLogout}>
+                <LogOut size={13} /> Sign out
+              </button>
+            : <button className="db-sb-footer-btn" onClick={() => navigate('/auth')}>
+                <LogIn size={13} /> Sign in
+              </button>
           }
         </div>
       </aside>
 
-      {/* ─── MAIN ────────────────────────────── */}
+      {/* ── MAIN ────────────────────────────── */}
       <main className="db-main">
+
         {/* Topbar */}
         <header className="db-topbar">
           <div className="db-topbar-left">
@@ -167,15 +182,17 @@ export default function Dashboard() {
                 )}
               </div>
             ) : (
-              <span className="db-topbar-hint">← Select or upload a file</span>
+              <span className="db-topbar-hint">Select or upload a file to begin</span>
             )}
           </div>
           <div className="db-topbar-right">
-            {!isAuth && (
-              <button className="btn btn-ghost" onClick={() => navigate('/auth')} style={{ fontSize: '0.8rem', padding: '6px 14px' }}>
-                Sign in
-              </button>
-            )}
+            {user
+              ? <div className="db-topbar-user"><User size={11} /> {user.username}</div>
+              : <button className="btn btn-ghost" onClick={() => navigate('/auth')}
+                  style={{ fontSize: '0.8rem', padding: '6px 14px' }}>
+                  Sign in
+                </button>
+            }
           </div>
         </header>
 
@@ -185,6 +202,7 @@ export default function Dashboard() {
             <EmptyState />
           ) : (
             <div className="db-content fade-up">
+
               {/* Media player */}
               {(ftype === 'audio' || ftype === 'video') && (
                 <div className="db-player-wrap">
@@ -196,18 +214,12 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Tab bar */}
+              {/* Tabs */}
               <div className="db-tabs">
-                <button
-                  className={`db-tab ${tab === 'chat' ? 'active' : ''}`}
-                  onClick={() => setTab('chat')}
-                >
+                <button className={`db-tab ${tab === 'chat' ? 'active' : ''}`} onClick={() => setTab('chat')}>
                   <MessageSquare size={13} /> Chat
                 </button>
-                <button
-                  className={`db-tab ${tab === 'summary' ? 'active' : ''}`}
-                  onClick={() => setTab('summary')}
-                >
+                <button className={`db-tab ${tab === 'summary' ? 'active' : ''}`} onClick={() => setTab('summary')}>
                   <FileText size={13} /> Summary
                 </button>
               </div>
@@ -232,16 +244,14 @@ function EmptyState() {
     <div className="db-empty">
       <div className="db-empty-blob" />
       <div className="db-empty-card">
-        <div className="db-empty-icon">
-          <MessageSquare size={26} />
-        </div>
+        <div className="db-empty-icon"><MessageSquare size={26} /></div>
         <h2>What's on your mind today?</h2>
         <p>Upload a PDF, audio, or video file from the sidebar to start asking questions with AI.</p>
         <div className="db-empty-types">
           {[
-            { icon: <FileText size={13} />, label: 'PDF document',  color: 'var(--purple)' },
-            { icon: <Music    size={13} />, label: 'Audio / Podcast', color: 'var(--green)' },
-            { icon: <Video    size={13} />, label: 'Video file',    color: 'var(--amber)' },
+            { icon: <FileText size={13}/>, label: 'PDF document',    color: 'var(--purple)' },
+            { icon: <Music    size={13}/>, label: 'Audio / Podcast', color: 'var(--green)' },
+            { icon: <Video    size={13}/>, label: 'Video file',      color: 'var(--amber)' },
           ].map(t => (
             <div key={t.label} className="db-empty-type" style={{ '--c': t.color }}>
               <span style={{ color: t.color }}>{t.icon}</span>

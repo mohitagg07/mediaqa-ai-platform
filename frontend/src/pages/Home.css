@@ -1,6 +1,6 @@
 .home {
   min-height: 100vh; display: flex; flex-direction: column;
-  background: var(--bg); overflow: auto;
+  background: var(--bg); overflow-y: auto;
 }
 
 .home-nav {
@@ -65,4 +65,50 @@
   border-top: 1px solid var(--border);
   font-size: 0.76rem; color: var(--text-3);
   font-family: var(--mono); flex-shrink: 0;
+}
+
+/* ── How it works ──────────────────────── */
+.home-how {
+  padding: 60px 24px;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.home-how-title {
+  font-size: 1.5rem; font-weight: 700;
+  letter-spacing: -0.02em; margin-bottom: 40px;
+  color: var(--text);
+}
+.home-steps {
+  display: flex; flex-wrap: wrap; gap: 24px;
+  justify-content: center; max-width: 860px; margin: 0 auto;
+}
+.home-step {
+  flex: 1; min-width: 220px; max-width: 260px;
+  background: var(--bg-2); border: 1px solid var(--border-md);
+  border-radius: var(--r-xl); padding: 28px 22px;
+  text-align: left; position: relative;
+  transition: border-color var(--trans), transform var(--trans);
+}
+.home-step:hover {
+  border-color: rgba(79,125,255,0.3);
+  transform: translateY(-2px);
+}
+.home-step-icon {
+  width: 44px; height: 44px;
+  background: var(--accent-glow); border: 1px solid rgba(79,125,255,0.2);
+  border-radius: var(--r-lg); display: flex; align-items: center;
+  justify-content: center; color: var(--accent); margin-bottom: 16px;
+}
+.home-step-num {
+  font-size: 0.7rem; font-family: var(--mono);
+  color: var(--accent); font-weight: 600;
+  letter-spacing: 0.08em; margin-bottom: 8px;
+}
+.home-step-title {
+  font-size: 0.95rem; font-weight: 700;
+  color: var(--text); margin-bottom: 8px;
+}
+.home-step-desc {
+  font-size: 0.82rem; color: var(--text-2); line-height: 1.6;
 }

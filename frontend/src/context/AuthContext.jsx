@@ -5,8 +5,10 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('user')
-    return stored ? JSON.parse(stored) : null
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch { return null }
   })
 
   const login = useCallback(async (username, password) => {
@@ -18,8 +20,9 @@ export function AuthProvider({ children }) {
     return res.data
   }, [])
 
-  const register = useCallback(async (username, email, password) => {
-    return authAPI.register({ username, email, password })
+  const register = useCallback(async (username, password) => {
+    // email is NOT required by backend — omit it
+    return authAPI.register({ username, password })
   }, [])
 
   const logout = useCallback(() => {
