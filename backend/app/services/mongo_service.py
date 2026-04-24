@@ -10,13 +10,19 @@ _client: Optional[AsyncIOMotorClient] = None
 def get_client() -> AsyncIOMotorClient:
     global _client
     if _client is None:
-        # Import inside function so .env is already loaded by the time this runs
+        # Import inside function so .env is already loaded (via main.py's load_dotenv)
+        # by the time the first DB call is made.
         from app.config import get_settings
         settings = get_settings()
-        logger.info(f"Connecting to MongoDB: {settings.MONGODB_URL[:40]}...")
+
+        # ✅ This log line is your proof: you MUST see mongodb+srv:// here.
+        #    If you still see mongodb://localhost:27017, your .env is not loading.
+        url_preview = settings.MONGODB_URL[:50] + "..." if len(settings.MONGODB_URL) > 50 else settings.MONGODB_URL
+        logger.info(f"[MongoDB] Connecting to: {url_preview}")
+
         _client = AsyncIOMotorClient(
             settings.MONGODB_URL,
-            serverSelectionTimeoutMS=10000,   # 10s timeout (not 30s)
+            serverSelectionTimeoutMS=10000,
             connectTimeoutMS=10000,
         )
     return _client

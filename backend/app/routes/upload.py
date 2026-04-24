@@ -15,15 +15,15 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 ALLOWED_EXTENSIONS = {
-    "pdf": FileType.PDF,
-    "mp3": FileType.AUDIO,
-    "wav": FileType.AUDIO,
-    "m4a": FileType.AUDIO,
-    "ogg": FileType.AUDIO,
-    "mp4": FileType.VIDEO,
-    "mkv": FileType.VIDEO,
-    "avi": FileType.VIDEO,
-    "mov": FileType.VIDEO,
+    "pdf":  FileType.PDF,
+    "mp3":  FileType.AUDIO,
+    "wav":  FileType.AUDIO,
+    "m4a":  FileType.AUDIO,
+    "ogg":  FileType.AUDIO,
+    "mp4":  FileType.VIDEO,
+    "mkv":  FileType.VIDEO,
+    "avi":  FileType.VIDEO,
+    "mov":  FileType.VIDEO,
     "webm": FileType.VIDEO,
 }
 
@@ -48,7 +48,6 @@ async def upload_file(
     Upload a PDF, audio, or video file.
     Extracts text/transcript, builds RAG index, generates summary.
     """
-    # Rate limiting
     client_ip = http_request.client.host if http_request.client else "unknown"
     limited, rl_headers = await check_rate_limit(
         identifier=client_ip, endpoint_type="heavy", user_id=current_user
@@ -63,7 +62,6 @@ async def upload_file(
     file_type = get_file_type(file.filename)
     file_id = str(uuid.uuid4())
 
-    # Save file to disk
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     ext = file.filename.rsplit(".", 1)[-1].lower()
     save_path = os.path.join(settings.UPLOAD_DIR, f"{file_id}.{ext}")
@@ -78,11 +76,11 @@ async def upload_file(
                 )
             await f.write(content)
 
-        # Extract content
         text_content = None
         transcript = None
         timestamps = []
         chunks = []
+        is_silent = False   # ← tracks whether video/audio had no speech
 
         if file_type == FileType.PDF:
             logger.info(f"Extracting text from PDF: {file_id}")
@@ -92,8 +90,9 @@ async def upload_file(
         elif file_type in (FileType.AUDIO, FileType.VIDEO):
             logger.info(f"Transcribing {file_type}: {file_id}")
             result = whisper_service.transcribe_audio(save_path)
-            transcript = result["transcript"]
-            timestamps = result["timestamps"]
+            transcript  = result["transcript"]
+            timestamps  = result["timestamps"]
+            is_silent   = result.get("is_silent", False)
             chunks = rag_service.chunk_text(transcript or "")
 
         # Build FAISS index
@@ -101,26 +100,31 @@ async def upload_file(
         if chunks:
             rag_service.build_faiss_index(file_id, chunks)
 
-        # Generate summary
+        # Generate summary — grounded in actual content
+        # Silent videos get a content-style prompt; everything else uses
+        # the strict transcript/text prompt to prevent hallucination.
         summary = None
         if full_text.strip():
             try:
-                summary = llm_service.generate_summary(full_text)
+                summary = llm_service.generate_summary(
+                    full_text,
+                    is_silent_video=is_silent,   # ← key flag
+                )
             except Exception as e:
                 logger.warning(f"Summary generation failed: {e}")
 
-        # Save to MongoDB
         doc = {
-            "file_id": file_id,
-            "filename": file.filename,
-            "type": file_type.value,
-            "file_path": save_path,
-            "transcript": transcript,
+            "file_id":      file_id,
+            "filename":     file.filename,
+            "type":         file_type.value,
+            "file_path":    save_path,
+            "transcript":   transcript,
             "text_content": text_content,
-            "chunks": chunks,
-            "timestamps": timestamps,
-            "summary": summary,
-            "user_id": current_user,
+            "chunks":       chunks,
+            "timestamps":   timestamps,
+            "summary":      summary,
+            "is_silent":    is_silent,
+            "user_id":      current_user,
         }
         await mongo_service.save_file_document(doc)
 
@@ -137,7 +141,6 @@ async def upload_file(
         raise
     except Exception as e:
         logger.error(f"Upload failed: {e}")
-        # Clean up file on error
         if os.path.exists(save_path):
             os.remove(save_path)
         raise HTTPException(
@@ -148,14 +151,12 @@ async def upload_file(
 
 @router.get("/files")
 async def list_files(current_user: str = Depends(get_current_user_optional)):
-    """List uploaded files (filtered by user if authenticated)."""
     files = await mongo_service.list_file_documents(user_id=current_user)
     return {"files": files}
 
 
 @router.get("/files/{file_id}")
 async def get_file_info(file_id: str):
-    """Get details for a specific uploaded file."""
     doc = await mongo_service.get_file_document(file_id)
     if not doc:
         raise HTTPException(status_code=404, detail="File not found")

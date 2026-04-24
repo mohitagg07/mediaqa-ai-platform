@@ -1,13 +1,16 @@
 """
-rag_service.py — improved chunking for better retrieval accuracy
+rag_service.py — FAISS vector search with disk persistence
 
 KEY FIXES vs original:
-  - chunk_size: 500 → 1000  (avoids splitting mid-sentence for structured docs)
-  - overlap:    50  → 200   (more context carry-over between chunks)
-  - Minimum chunk size filter (skip tiny fragments)
-  - Better logging for debugging retrieval issues
+  - FAISS indexes are saved to disk (faiss_indexes/<file_id>.faiss +
+    faiss_indexes/<file_id>.chunks.pkl) so they survive server restarts.
+  - semantic_search() auto-loads from disk when index is not in memory.
+  - chunk_size: 500 → 1000 / overlap: 50 → 200 for better coverage.
+  - Minimum chunk size filter (skip tiny fragments).
 """
 
+import os
+import pickle
 import logging
 import numpy as np
 from typing import List, Tuple, Optional
@@ -19,8 +22,19 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 _embedding_model: Optional[SentenceTransformer] = None
-_indexes: dict = {}   # {file_id: (faiss_index, chunks_list)}
+_indexes: dict = {}   # {file_id: (faiss_index, chunks_list)}  — in-memory cache
 
+
+# ── Helpers: disk paths ──────────────────────────────────────────────────────
+
+def _faiss_path(file_id: str) -> str:
+    return os.path.join(settings.FAISS_INDEX_PATH, f"{file_id}.faiss")
+
+def _chunks_path(file_id: str) -> str:
+    return os.path.join(settings.FAISS_INDEX_PATH, f"{file_id}.chunks.pkl")
+
+
+# ── Embedding model ──────────────────────────────────────────────────────────
 
 def get_embedding_model() -> SentenceTransformer:
     global _embedding_model
@@ -31,10 +45,12 @@ def get_embedding_model() -> SentenceTransformer:
     return _embedding_model
 
 
+# ── Text chunking ────────────────────────────────────────────────────────────
+
 def chunk_text(
     text: str,
-    chunk_size: int = 1000,   # ← was 500, now 1000 for better coverage
-    overlap: int = 200,        # ← was 50, now 200 for more context
+    chunk_size: int = 1000,
+    overlap: int = 200,
 ) -> List[str]:
     """
     Split text into overlapping chunks.
@@ -45,9 +61,7 @@ def chunk_text(
         return []
 
     words = text.split()
-    chunks = []
-    chunk_words: List[str] = []
-    char_count = 0
+    chunks, chunk_words, char_count = [], [], 0
 
     for word in words:
         chunk_words.append(word)
@@ -55,15 +69,13 @@ def chunk_text(
 
         if char_count >= chunk_size:
             chunk_str = " ".join(chunk_words)
-            # Skip tiny fragments (< 50 chars)
-            if len(chunk_str.strip()) >= 50:
+            if len(chunk_str.strip()) >= 50:   # skip tiny fragments
                 chunks.append(chunk_str)
             # Carry overlap words into next chunk
             overlap_text = " ".join(chunk_words)[-overlap:]
             chunk_words = overlap_text.split()
             char_count = sum(len(w) + 1 for w in chunk_words)
 
-    # Last remaining words
     if chunk_words:
         last = " ".join(chunk_words)
         if len(last.strip()) >= 50:
@@ -73,8 +85,13 @@ def chunk_text(
     return chunks
 
 
+# ── FAISS index build + persist ──────────────────────────────────────────────
+
 def build_faiss_index(file_id: str, chunks: List[str]) -> None:
-    """Build and cache a FAISS flat-IP index for the given chunks."""
+    """
+    Build a FAISS flat-IP index for the given chunks,
+    cache it in memory AND save it to disk so it survives restarts.
+    """
     if not chunks:
         logger.warning(f"No chunks to index for {file_id}")
         return
@@ -82,19 +99,66 @@ def build_faiss_index(file_id: str, chunks: List[str]) -> None:
     model = get_embedding_model()
     embeddings = model.encode(chunks, convert_to_numpy=True, show_progress_bar=False)
     embeddings = embeddings.astype(np.float32)
-
-    # Normalize for cosine similarity via inner product
     faiss.normalize_L2(embeddings)
-    dim = embeddings.shape[1]
 
+    dim = embeddings.shape[1]
     index = faiss.IndexFlatIP(dim)
     index.add(embeddings)
 
+    # Memory cache
     _indexes[file_id] = (index, chunks)
+
+    # ── Disk persistence ────────────────────────────────────────────────────
+    os.makedirs(settings.FAISS_INDEX_PATH, exist_ok=True)
+    try:
+        faiss.write_index(index, _faiss_path(file_id))
+        with open(_chunks_path(file_id), "wb") as f:
+            pickle.dump(chunks, f)
+        logger.info(
+            f"FAISS index saved to disk for {file_id}: "
+            f"{len(chunks)} vectors, dim={dim}"
+        )
+    except Exception as e:
+        logger.warning(f"Could not save FAISS index to disk for {file_id}: {e}")
+
     logger.info(
         f"FAISS index built for {file_id}: {len(chunks)} vectors, dim={dim}"
     )
 
+
+def _load_index_from_disk(file_id: str) -> bool:
+    """
+    Try to load a previously saved FAISS index from disk into memory.
+    Returns True if successful.
+    """
+    fp, cp = _faiss_path(file_id), _chunks_path(file_id)
+    if not (os.path.isfile(fp) and os.path.isfile(cp)):
+        return False
+    try:
+        index = faiss.read_index(fp)
+        with open(cp, "rb") as f:
+            chunks = pickle.load(f)
+        _indexes[file_id] = (index, chunks)
+        logger.info(f"FAISS index loaded from disk for {file_id}: {len(chunks)} chunks")
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to load FAISS index from disk for {file_id}: {e}")
+        return False
+
+
+def rebuild_index_from_chunks(file_id: str, chunks: List[str]) -> bool:
+    """
+    Rebuild FAISS index from raw text chunks (e.g. loaded from MongoDB).
+    Called as a last-resort fallback in semantic_search.
+    """
+    if not chunks:
+        return False
+    logger.info(f"Rebuilding FAISS index from {len(chunks)} chunks for {file_id}")
+    build_faiss_index(file_id, chunks)
+    return True
+
+
+# ── Semantic search (with auto-restore) ─────────────────────────────────────
 
 def semantic_search(
     file_id: str,
@@ -103,11 +167,20 @@ def semantic_search(
 ) -> List[Tuple[str, float]]:
     """
     Retrieve the top_k most relevant chunks for the query.
+    Auto-restores the FAISS index from disk if not in memory
+    (handles server restarts gracefully).
     Returns list of (chunk_text, score) tuples.
     """
+    # 1. Try memory cache
     if file_id not in _indexes:
-        logger.warning(f"No FAISS index found for {file_id} — index may have been lost on server restart")
-        return []
+        # 2. Try disk
+        if not _load_index_from_disk(file_id):
+            logger.warning(
+                f"No FAISS index for {file_id} — "
+                "file was uploaded in a previous session. "
+                "Caller should pass chunks for rebuild."
+            )
+            return []
 
     index, chunks = _indexes[file_id]
     model = get_embedding_model()
@@ -118,10 +191,12 @@ def semantic_search(
     k = min(top_k, len(chunks))
     scores, indices = index.search(query_emb, k)
 
-    results = []
-    for score, idx in zip(scores[0], indices[0]):
-        if idx >= 0:
-            results.append((chunks[idx], float(score)))
-
-    logger.info(f"Semantic search returned {len(results)} results for file {file_id}")
+    results = [
+        (chunks[idx], float(score))
+        for score, idx in zip(scores[0], indices[0])
+        if idx >= 0
+    ]
+    logger.info(
+        f"Semantic search returned {len(results)} results for file {file_id}"
+    )
     return results

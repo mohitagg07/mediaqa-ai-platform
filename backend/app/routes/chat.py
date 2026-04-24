@@ -11,33 +11,74 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
-async def _resolve_rag(request: ChatRequest, doc: dict) -> tuple[str, list, list]:
-    """Shared RAG resolution used by both /chat and /chat/stream."""
-    if not request.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty")
+async def _get_context_chunks(request: ChatRequest, doc: dict) -> list[str]:
+    """
+    Retrieve RAG context chunks for the query.
 
+    Recovery order:
+      1. FAISS index in memory          (normal hot path)
+      2. FAISS index on disk            (server restarted, index still saved)
+      3. Rebuild from MongoDB chunks    (disk index also missing — last resort)
+      4. Return [] and answer from summary (summary-only fallback)
+    """
     search_results = rag_service.semantic_search(
         file_id=request.file_id,
         query=request.question,
         top_k=4,
     )
-    context_chunks = [chunk for chunk, _ in search_results]
-    source_previews = [chunk[:120] + "..." for chunk in context_chunks]
 
-    # Timestamp matching
-    timestamp = None
-    timestamp_text = None
-    if doc.get("type") in ("audio", "video"):
-        timestamps = doc.get("timestamps", [])
-        if timestamps and context_chunks:
-            top_chunk = llm_service.find_relevant_timestamp_chunk(request.question, context_chunks)
-            if top_chunk:
-                matched = whisper_service.find_timestamp_for_text(top_chunk, timestamps)
-                if matched:
-                    timestamp = matched["start"]
-                    timestamp_text = matched["text"]
+    # If semantic_search returned empty, try to rebuild from MongoDB chunks
+    if not search_results:
+        stored_chunks = doc.get("chunks", [])
+        if stored_chunks:
+            logger.info(
+                f"FAISS index missing for {request.file_id} — "
+                f"rebuilding from {len(stored_chunks)} MongoDB chunks"
+            )
+            rebuilt = rag_service.rebuild_index_from_chunks(
+                request.file_id, stored_chunks
+            )
+            if rebuilt:
+                search_results = rag_service.semantic_search(
+                    file_id=request.file_id,
+                    query=request.question,
+                    top_k=4,
+                )
 
-    return context_chunks, source_previews, timestamp, timestamp_text
+    # Absolute fallback: use summary or transcript as single context chunk
+    if not search_results:
+        fallback_text = (
+            doc.get("summary")
+            or doc.get("transcript")
+            or doc.get("text_content")
+            or ""
+        )
+        if fallback_text.strip():
+            logger.warning(
+                f"Using summary/transcript fallback for {request.file_id}"
+            )
+            return [fallback_text[:3000]]
+        return []
+
+    return [chunk for chunk, _ in search_results]
+
+
+def _extract_timestamp(doc: dict, context_chunks: list[str]):
+    """Try to find the most relevant timestamp from audio/video segments."""
+    if doc.get("type") not in ("audio", "video"):
+        return None, None
+    timestamps = doc.get("timestamps", [])
+    if not timestamps or not context_chunks:
+        return None, None
+    top_chunk = llm_service.find_relevant_timestamp_chunk(
+        "", context_chunks   # query not needed — top chunk already ranked
+    )
+    if not top_chunk:
+        return None, None
+    matched = whisper_service.find_timestamp_for_text(top_chunk, timestamps)
+    if matched:
+        return matched["start"], matched["text"]
+    return None, None
 
 
 @router.post("", response_model=ChatResponse)
@@ -46,12 +87,7 @@ async def chat(
     request: ChatRequest,
     current_user: str = Depends(get_current_user_optional),
 ):
-    """
-    RAG-powered Q&A over an uploaded file (blocking response).
-
-    Pipeline: FAISS semantic search → Groq LLM → timestamp extraction.
-    """
-    # Rate limiting
+    """RAG-powered Q&A over an uploaded file (blocking response)."""
     client_ip = http_request.client.host if http_request.client else "unknown"
     limited, rl_headers = await check_rate_limit(
         identifier=client_ip, endpoint_type="heavy", user_id=current_user
@@ -67,43 +103,29 @@ async def chat(
     if not doc:
         raise HTTPException(status_code=404, detail="File not found")
 
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+
     try:
         logger.info(f"RAG query [{request.file_id}]: {request.question[:60]}")
-        search_results = rag_service.semantic_search(
-            file_id=request.file_id, query=request.question, top_k=4
-        )
+        context_chunks = await _get_context_chunks(request, doc)
 
-        if not search_results:
+        if not context_chunks:
             return ChatResponse(
                 answer="I couldn't find relevant information in this document.",
                 sources=[],
             )
 
-        context_chunks = [chunk for chunk, _ in search_results]
-        source_previews = [chunk[:120] + "..." for chunk in context_chunks]
         answer = llm_service.answer_question(request.question, context_chunks)
+        source_previews = [c[:120] + "..." for c in context_chunks]
+        timestamp, timestamp_text = _extract_timestamp(doc, context_chunks)
 
-        timestamp = None
-        timestamp_text = None
-        if doc.get("type") in ("audio", "video"):
-            timestamps = doc.get("timestamps", [])
-            if timestamps:
-                top_chunk = llm_service.find_relevant_timestamp_chunk(
-                    request.question, context_chunks
-                )
-                if top_chunk:
-                    matched = whisper_service.find_timestamp_for_text(top_chunk, timestamps)
-                    if matched:
-                        timestamp = matched["start"]
-                        timestamp_text = matched["text"]
-
-        response = ChatResponse(
+        return ChatResponse(
             answer=answer,
             timestamp=timestamp,
             timestamp_text=timestamp_text,
             sources=source_previews,
         )
-        return response
 
     except RuntimeError as e:
         logger.error(f"Chat error: {e}")
@@ -127,13 +149,7 @@ async def chat_stream(
       data: [META]<json>\\n\\n    — timestamp + sources after streaming
       data: [DONE]\\n\\n          — stream complete
       data: [ERROR]<msg>\\n\\n   — error occurred
-
-    Frontend usage (EventSource / fetch with ReadableStream):
-      const resp = await fetch('/chat/stream', { method: 'POST', body: JSON.stringify({...}) });
-      const reader = resp.body.getReader();
-      // read chunks and render tokens progressively
     """
-    # Rate limiting
     client_ip = http_request.client.host if http_request.client else "unknown"
     limited, rl_headers = await check_rate_limit(
         identifier=client_ip, endpoint_type="heavy", user_id=current_user
@@ -154,42 +170,25 @@ async def chat_stream(
 
     async def event_generator():
         try:
-            # Step 1: semantic search (fast, not streamed)
-            search_results = rag_service.semantic_search(
-                file_id=request.file_id, query=request.question, top_k=4
-            )
+            # Step 1: get context (with full fallback chain)
+            context_chunks = await _get_context_chunks(request, doc)
 
-            if not search_results:
+            if not context_chunks:
                 yield "data: I couldn't find relevant information in this document.\n\n"
                 yield "data: [DONE]\n\n"
                 return
 
-            context_chunks = [chunk for chunk, _ in search_results]
-            source_previews = [chunk[:120] + "..." for chunk in context_chunks]
+            source_previews = [c[:120] + "..." for c in context_chunks]
 
             # Step 2: stream LLM tokens
             async for token in llm_service.stream_answer_question(
                 request.question, context_chunks
             ):
-                # Escape newlines so SSE frames stay single-line
                 safe_token = token.replace("\n", "\\n")
                 yield f"data: {safe_token}\n\n"
 
-            # Step 3: send metadata (timestamp + sources) after full answer
-            timestamp = None
-            timestamp_text = None
-            if doc.get("type") in ("audio", "video"):
-                timestamps = doc.get("timestamps", [])
-                if timestamps:
-                    top_chunk = llm_service.find_relevant_timestamp_chunk(
-                        request.question, context_chunks
-                    )
-                    if top_chunk:
-                        matched = whisper_service.find_timestamp_for_text(top_chunk, timestamps)
-                        if matched:
-                            timestamp = matched["start"]
-                            timestamp_text = matched["text"]
-
+            # Step 3: send metadata after full answer
+            timestamp, timestamp_text = _extract_timestamp(doc, context_chunks)
             meta = json.dumps({
                 "timestamp": timestamp,
                 "timestamp_text": timestamp_text,
@@ -210,6 +209,6 @@ async def chat_stream(
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",  # disable nginx buffering
+            "X-Accel-Buffering": "no",
         },
     )

@@ -1,6 +1,14 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import Optional
+from pathlib import Path
+
+# ── Resolve .env path relative to THIS file, not the working directory ───────
+# This file lives at:  backend/app/config.py
+# .env lives at:       backend/.env
+# Going up two levels: backend/app/ → backend/
+_HERE = Path(__file__).resolve().parent          # → .../backend/app/
+_ENV_FILE = _HERE.parent / ".env"                # → .../backend/.env
 
 
 class Settings(BaseSettings):
@@ -39,7 +47,10 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 500
 
     class Config:
-        env_file = ".env"
+        # ✅ FIX: absolute path derived from __file__ — works regardless of
+        # which directory uvicorn is started from (backend/, project root, Docker).
+        env_file = str(_ENV_FILE)
+        env_file_encoding = "utf-8"
         case_sensitive = True
 
 

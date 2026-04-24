@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  # ── MongoDB ─────────────────────────────────────────────────────────────
+  # ── MongoDB (local — used only when NOT using Atlas) ─────────────────────
   mongo:
     image: mongo:7
     container_name: mediaqa-mongo
@@ -42,10 +42,19 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    # ✅ FIX: env_file loads ALL keys from backend/.env (including MONGODB_URL).
+    # The `environment` block previously had a hardcoded MONGODB_URL=mongodb://mongo:27017
+    # which SILENTLY OVERRODE the Atlas URL from .env — that was the bug.
+    #
+    # Now:
+    #   • To use MongoDB Atlas → set MONGODB_URL=mongodb+srv://... in backend/.env
+    #   • To use local Docker mongo → uncomment the line below:
+    #     MONGODB_URL: mongodb://mongo:27017
     env_file:
       - ./backend/.env
     environment:
-      - MONGODB_URL=mongodb://mongo:27017
+      # Only REDIS_URL is overridden here because Redis always runs in Docker.
+      # MONGODB_URL intentionally NOT set here — it comes from .env.
       - REDIS_URL=redis://redis:6379
     volumes:
       - uploads_data:/app/uploads

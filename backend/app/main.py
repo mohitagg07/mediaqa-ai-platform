@@ -1,5 +1,30 @@
 import os
 import logging
+from pathlib import Path
+
+# ── Load .env BEFORE anything else ─────────────────────────────────────────
+# python-dotenv must populate os.environ BEFORE pydantic-settings reads it,
+# because get_settings() is decorated with @lru_cache — the very first call
+# freezes the result forever. If .env isn't loaded yet, it falls back to the
+# hardcoded default "mongodb://localhost:27017".
+#
+# We try three candidate paths so this works whether you run uvicorn from:
+#   • backend/           → python -m uvicorn app.main:app --reload
+#   • project root       → uvicorn backend.app.main:app
+#   • inside Docker      → WORKDIR /app, CMD uvicorn app.main:app
+from dotenv import load_dotenv as _load_dotenv
+
+_env_candidates = [
+    Path(__file__).resolve().parent.parent / ".env",  # backend/.env  ← canonical
+    Path(".env"),                                       # cwd/.env      ← fallback
+    Path("backend/.env"),                              # project-root run
+]
+for _p in _env_candidates:
+    if _p.exists():
+        _load_dotenv(dotenv_path=str(_p), override=True)
+        break
+# ────────────────────────────────────────────────────────────────────────────
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,6 +39,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# ── Startup confirmation — proves .env loaded correctly ─────────────────────
+_mongo_preview = settings.MONGODB_URL[:45] + "..." if len(settings.MONGODB_URL) > 45 else settings.MONGODB_URL
+logger.info(f"[CONFIG] MONGODB_URL = {_mongo_preview}")
+logger.info(f"[CONFIG] MONGODB_DB  = {settings.MONGODB_DB}")
+# ────────────────────────────────────────────────────────────────────────────
 
 
 @asynccontextmanager
