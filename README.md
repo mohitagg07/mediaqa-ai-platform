@@ -3,6 +3,7 @@
 > AI-powered Q&A for PDFs, audio, and video files — with RAG, real-time streaming, timestamps, and JWT auth.
 
 [![CI/CD](https://github.com/mohitagg07/mediaqa-ai-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/mohitagg07/mediaqa-ai-platform/actions)
+![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
 
 **Live Demo:** https://mediaqa-ai-platform.vercel.app  
 **Backend API:** https://mediaqa-backend.onrender.com  
