@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0e1117;
+  --bg-1:      #161b27;
+  --bg-2:      #1c2333;
+  --bg-3:      #232d42;
+  --bg-4:      #2a3550;
+  --border:    rgba(255,255,255,0.06);
+  --border-md: rgba(255,255,255,0.10);
+  --border-hi: rgba(255,255,255,0.18);
+  --text:      #e8ecf4;
+  --text-2:    #8892a8;
+  --text-3:    #4e5a72;
+  --accent:    #4f7dff;
+  --accent-hi: #6690ff;
+  --accent-glow: rgba(79,125,255,0.16);
+  --accent-2:  #38bdf8;
+  --green:     #22c55e;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+  --purple:    #a78bfa;
+  --sidebar-w: 260px;
+  --r:         10px;
+  --r-lg:      14px;
+  --r-xl:      18px;
+  --font:      'Outfit', sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+  --ease:      cubic-bezier(0.25,0.46,0.45,0.94);
+  --trans:     0.15s var(--ease);
+}
+
+html { font-size: 15px; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  overflow: hidden;
+  height: 100vh;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 4px; }
+
+/* ── Utilities ─────────────────────────────── */
+.mono { font-family: var(--mono); }
+
+/* ── Buttons ─────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 8px 16px; border-radius: var(--r);
+  font-family: var(--font); font-size: 0.875rem; font-weight: 500;
+  border: none; cursor: pointer; transition: var(--trans);
+  white-space: nowrap; text-decoration: none;
+  position: relative; overflow: hidden;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 0 0 0 var(--accent-glow);
+}
+.btn-primary:hover { background: var(--accent-hi); box-shadow: 0 0 20px var(--accent-glow); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-ghost {
+  background: transparent; color: var(--text-2);
+  border: 1px solid var(--border-md);
+}
+.btn-ghost:hover { background: var(--bg-3); color: var(--text); border-color: var(--border-hi); }
+.btn-icon {
+  width: 32px; height: 32px; padding: 0;
+  background: transparent; color: var(--text-3); border: none;
+  border-radius: 8px; cursor: pointer; transition: var(--trans);
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { background: var(--bg-3); color: var(--text-2); }
+
+/* ── Spinner ────────────────────────────── */
+.spin {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Badges ─────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 100px;
+  font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge-pdf    { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+.badge-audio  { background: rgba(34,197,94,0.1);    color: var(--green);  border: 1px solid rgba(34,197,94,0.2); }
+.badge-video  { background: rgba(245,158,11,0.1);   color: var(--amber);  border: 1px solid rgba(245,158,11,0.2); }
+
+/* ── Input ────────────────────────────── */
+.input {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg-2); color: var(--text);
+  border: 1px solid var(--border-md); border-radius: var(--r);
+  font-family: var(--font); font-size: 0.9rem;
+  outline: none; transition: var(--trans); resize: none;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.input::placeholder { color: var(--text-3); }
+
+/* ── Animations ───────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.7); }
+  50%       { opacity: 1;    transform: scale(1); }
+}
+
+.fade-up { animation: fadeUp 0.3s var(--ease) forwards; }
+.fade-in { animation: fadeIn 0.25s ease forwards; }

@@ -1,0 +1,75 @@
+.sm {
+  display: flex; flex-direction: column; height: 100%;
+}
+
+.sm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sm-header-left {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.88rem; font-weight: 600; color: var(--text);
+}
+.sm-refresh {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; background: none;
+  border: 1px solid var(--border-md); border-radius: 7px;
+  color: var(--text-3); cursor: pointer; transition: var(--trans);
+}
+.sm-refresh:hover { color: var(--text); background: var(--bg-3); }
+.sm-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.sm-body {
+  flex: 1; overflow-y: auto; padding: 18px;
+}
+
+.sm-loading {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text-2); font-size: 0.88rem;
+  padding: 20px 0;
+}
+
+.sm-error {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 14px; background: rgba(239,68,68,0.07);
+  border: 1px solid rgba(239,68,68,0.2); border-radius: var(--r);
+  color: var(--red); font-size: 0.85rem; line-height: 1.5;
+}
+
+.sm-empty {
+  color: var(--text-3); font-size: 0.85rem; text-align: center;
+  padding: 30px 0;
+}
+
+/* Content styling */
+.sm-content { display: flex; flex-direction: column; gap: 14px; }
+
+.sm-h2 {
+  font-size: 1rem; font-weight: 700; color: var(--text);
+  letter-spacing: -0.01em; margin-bottom: 8px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.sm-h3 {
+  font-size: 0.9rem; font-weight: 600; color: var(--accent);
+  margin-bottom: 6px;
+}
+.sm-p {
+  font-size: 0.875rem; color: var(--text-2); line-height: 1.7;
+}
+.sm-ul {
+  display: flex; flex-direction: column; gap: 7px;
+  padding-left: 0; list-style: none;
+}
+.sm-li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 0.875rem; color: var(--text-2); line-height: 1.55;
+  padding: 8px 12px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.sm-li::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); flex-shrink: 0; margin-top: 5px;
+}
+.sm-strong { color: var(--text); font-weight: 600; }
